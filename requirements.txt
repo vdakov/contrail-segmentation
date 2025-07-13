@@ -9,3 +9,4 @@ albumentations
 opencv-python
 seaborn
 pandas
+ipykernel

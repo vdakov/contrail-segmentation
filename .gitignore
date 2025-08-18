@@ -1,3 +1,7 @@
 .vscode/settings.json
 data
 __pycache__
+data_util/AudioMNIST/__pycache__
+data_util/AudioMNIST/free-spoken-digit-dataset-master
+data_util/MNIST
+lightning_logs

@@ -93,5 +93,50 @@ def main(dataset, minute, epoch, loss, base):
     torch.save(model.state_dict(), f_out)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
+
+def train_contrail_network(augmentation, epochs, loss, base):
+
+    print(
+        f"training:  {epochs} epoch, {loss} loss, {base} base"
+    )
+
+    torch.cuda.empty_cache()
+    
+    train_dataset, val_dataset = data.study_dataset(augmentation=augmentation)
+
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=16,
+        shuffle=True,
+    )
+
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=16,
+        shuffle=True,
+    )
+
+    model = ContrailModel(arch="UNet", in_channels=1, out_classes=1, loss=loss)
+
+    trainer = lightning.Trainer(
+        max_epochs=epochs,
+        log_every_n_steps=20,
+    )
+    max_val = epochs
+    tag = "epoch"
+
+    trainer.fit(
+        model,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=val_dataloader,
+    )
+
+    if base is None:
+        f_out = f"data/models/{loss}-{max_val}{tag}.torch"
+    else:
+        f_out = f"data/models/{loss}:{base}-{max_val}{tag}.torch"
+
+    torch.save(model.state_dict(), f_out)

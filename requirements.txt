@@ -10,3 +10,4 @@ opencv-python
 seaborn
 pandas
 ipykernel
+click

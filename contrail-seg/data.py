@@ -1,6 +1,4 @@
-# %%
 import glob
-
 import albumentations as albu
 import cv2
 import matplotlib.pyplot as plt
@@ -13,8 +11,6 @@ DEFAULT_IMG_SIZE = 320
 GOOGLE_DIR = "data/google-goes-contrail"
 
 
-# %%
-# visualization a series of images
 def visualize(**images):
     n = len(images)
     plt.figure(figsize=(n * 5, 5))
@@ -109,6 +105,13 @@ def get_preprocessing():
     ]
     return albu.Compose(_transform)
 
+import torch
+import albumentations as albu
+import numpy as np
+from PIL import Image
+
+
+
 
 class BaseDataset:
     """Read images, apply augmentation and preprocessing transformations.
@@ -193,6 +196,55 @@ class OwnDataset(BaseDataset):
         else:
             return image
 
+class StudyDataset(BaseDataset):
+    """Read images, apply augmentation and preprocessing transformations.
+
+    Args:
+        images_dir (str): path to images folder
+        masks_dir (str): path to segmentation masks folder, Default: None
+        augmentation (albumentations.Compose): data transfromation pipeline
+            (e.g. flip, scale, perspective, gamma, etc.)
+        preprocessing (albumentations.Compose): data preprocessing from pre-trained model
+            (e.g. normalization, shape manipulation, etc.)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __getitem__(self, i):
+        # read image in color
+        image = cv2.imread(self.image_paths[i], cv2.IMREAD_GRAYSCALE)
+
+        if self.has_mask:
+            # read mask (png) and convert to grayscale
+            mask = np.amax(cv2.imread(self.mask_paths[i], cv2.IMREAD_UNCHANGED), axis=2)
+            mask = mask / mask.max()
+            image = Image.fromarray(image)
+            mask = Image.fromarray(mask)
+
+
+            # apply augmentations
+            if self.augmentation:
+                image = self.augmentation(image)
+                mask = self.augmentation(mask)
+
+
+
+        else:
+            image = Image.fromarray(image)
+            if self.augmentation:
+                image = self.augmentation(image)
+             
+
+
+
+        # normalize image
+        image = (image - image.min()) / (image.max() - image.min())
+
+        if self.has_mask:
+            return image, mask
+        else:
+            return image
 
 class GoogleDataset(BaseDataset):
     """Read images, apply augmentation and preprocessing transformations.
@@ -275,6 +327,27 @@ def own_dataset(for_training=True):
 
     return train_dataset, val_dataset
 
+def study_dataset(for_training=True, augmentation=None):
+    image_paths = sorted(glob.glob(f"contrail-seg/data/goes/**/image/*.png"))
+    mask_paths = sorted(glob.glob(f"contrail-seg/data/goes/**/mask/*.png"))
+
+    x_train, x_val, y_train, y_val = train_test_split(
+        image_paths, mask_paths, test_size=0.3, random_state=42
+    )
+
+    train_dataset = StudyDataset(
+        x_train,
+        y_train,
+        augmentation=augmentation
+    )
+
+    val_dataset = StudyDataset(
+        x_val,
+        y_val,
+        augmentation=augmentation
+    )
+    
+    return train_dataset, val_dataset
 
 def google_dataset(for_training=True, contrail_only=False, threshold=100):
     mask_stats = pd.read_csv(f"{GOOGLE_DIR}/mask_stats.csv")

@@ -11,3 +11,4 @@ seaborn
 pandas
 ipykernel
 click
+lightning

@@ -159,27 +159,33 @@ class OwnDataset(BaseDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
     def __getitem__(self, i):
-        # read image in color
+    # --- read image (grayscale) ---
         image = cv2.imread(self.image_paths[i], cv2.IMREAD_GRAYSCALE)
 
         if self.has_mask:
-            # read mask (png) and convert to grayscale
-            mask = np.amax(cv2.imread(self.mask_paths[i], cv2.IMREAD_UNCHANGED), axis=2)
-            mask = mask / mask.max()
+            # --- read mask ---
+            mask = cv2.imread(self.mask_paths[i], cv2.IMREAD_UNCHANGED)
+            if mask.ndim == 3:  # collapse to 1 channel if RGB
+                mask = np.amax(mask, axis=2)
+            mask = mask.astype(np.float32)
+            if mask.max() > 0:
+                mask /= mask.max()  # ensure [0,1]
 
-            # apply augmentations
+            # --- apply augmentations ---
             if self.augmentation:
                 sample = self.augmentation(image=image, mask=mask)
                 image, mask = sample["image"], sample["mask"]
 
-            # apply preprocessing
+            # --- apply preprocessing ---
             if self.preprocessing:
                 sample = self.preprocessing(image=image, mask=mask)
                 image, mask = sample["image"], sample["mask"]
 
+            return image, mask
+
         else:
+            # --- no mask case ---
             if self.augmentation:
                 sample = self.augmentation(image=image)
                 image = sample["image"]
@@ -188,63 +194,8 @@ class OwnDataset(BaseDataset):
                 sample = self.preprocessing(image=image)
                 image = sample["image"]
 
-        # normalize image
-        image = (image - image.min()) / (image.max() - image.min())
-
-        if self.has_mask:
-            return image, mask
-        else:
             return image
 
-class StudyDataset(BaseDataset):
-    """Read images, apply augmentation and preprocessing transformations.
-
-    Args:
-        images_dir (str): path to images folder
-        masks_dir (str): path to segmentation masks folder, Default: None
-        augmentation (albumentations.Compose): data transfromation pipeline
-            (e.g. flip, scale, perspective, gamma, etc.)
-        preprocessing (albumentations.Compose): data preprocessing from pre-trained model
-            (e.g. normalization, shape manipulation, etc.)
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def __getitem__(self, i):
-        # read image in color
-        image = cv2.imread(self.image_paths[i], cv2.IMREAD_GRAYSCALE)
-
-        if self.has_mask:
-            # read mask (png) and convert to grayscale
-            mask = np.amax(cv2.imread(self.mask_paths[i], cv2.IMREAD_UNCHANGED), axis=2)
-            mask = mask / mask.max()
-            image = Image.fromarray(image)
-            mask = Image.fromarray(mask)
-
-
-            # apply augmentations
-            if self.augmentation:
-                image = self.augmentation(image)
-                mask = self.augmentation(mask)
-
-
-
-        else:
-            image = Image.fromarray(image)
-            if self.augmentation:
-                image = self.augmentation(image)
-             
-
-
-
-        # normalize image
-        image = (image - image.min()) / (image.max() - image.min())
-
-        if self.has_mask:
-            return image, mask
-        else:
-            return image
 
 class GoogleDataset(BaseDataset):
     """Read images, apply augmentation and preprocessing transformations.
@@ -327,7 +278,7 @@ def own_dataset(for_training=True):
 
     return train_dataset, val_dataset
 
-def study_dataset(for_training=True, augmentation=None):
+def own_dataset_2(augmentation, for_training=True):
     image_paths = sorted(glob.glob(f"contrail-seg/data/goes/**/image/*.png"))
     mask_paths = sorted(glob.glob(f"contrail-seg/data/goes/**/mask/*.png"))
 
@@ -335,18 +286,20 @@ def study_dataset(for_training=True, augmentation=None):
         image_paths, mask_paths, test_size=0.3, random_state=42
     )
 
-    train_dataset = StudyDataset(
+    train_dataset = OwnDataset(
         x_train,
         y_train,
-        augmentation=augmentation
+        augmentation=augmentation,
+        preprocessing=get_preprocessing(),
     )
 
-    val_dataset = StudyDataset(
+    val_dataset = OwnDataset(
         x_val,
         y_val,
-        augmentation=augmentation
+        augmentation=augmentation,
+        preprocessing=get_preprocessing(),
     )
-    
+
     return train_dataset, val_dataset
 
 def google_dataset(for_training=True, contrail_only=False, threshold=100):

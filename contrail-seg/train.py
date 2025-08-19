@@ -1,20 +1,13 @@
 # %%
 import warnings
-
 import click
 import lightning
 import torch
 from torch.utils.data import DataLoader
-
-import data
 from contrail import ContrailModel
+import data
 
 warnings.filterwarnings("ignore")
-
-
-# %%
-
-
 @click.command()
 @click.option("--dataset", required=True)
 @click.option("--minute", required=False, type=int, help="minutes")
@@ -104,7 +97,8 @@ def train_contrail_network(augmentation, epochs, loss, base):
 
     torch.cuda.empty_cache()
     
-    train_dataset, val_dataset = data.study_dataset(augmentation=augmentation)
+    # train_dataset, val_dataset = data.study_dataset(augmentation=augmentation)
+    train_dataset, val_dataset = data.own_dataset_2(augmentation)
 
 
     train_dataloader = DataLoader(

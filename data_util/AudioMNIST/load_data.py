@@ -21,12 +21,13 @@ def load_audio_data_noisy(folder_path, max_samples=3000):
     X, y, wavs = [], [], []
     for file in tqdm(os.listdir(folder_path)[:max_samples]):
         x = librosa.load(os.path.join(folder_path, file), sr=44100)[0]
-        X.append(preprocess_wav_into_features(np.array(x)))
-        x += np.random.normal(0, 0.001, x.shape) 
-        
         wavs.append(x)
-        x = np.array(x)
-        X.append(preprocess_wav_into_features(x))
+        X.append(preprocess_wav_into_features(np.array(x)))
+        x_noisy = x + np.random.normal(0, 0.001, x.shape)
+        
+        wavs.append(x_noisy)
+        x = np.array(x_noisy)
+        X.append(preprocess_wav_into_features(x_noisy))
         y.append(file[:1])
         y.append(file[:1])
     X = np.array(X)

@@ -1,4 +1,5 @@
 # %%
+import os
 import warnings
 import click
 import lightning
@@ -89,6 +90,59 @@ def main(dataset, minute, epoch, loss, base):
 # if __name__ == "__main__":
 #     main()
 
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from lightning.pytorch.callbacks import Callback
+
+class PredictionCallback(Callback):
+    def __init__(self, val_samples, output_dir="predictions", num_images=4):
+        super().__init__()
+        self.val_samples = val_samples
+        self.output_dir = output_dir
+        self.num_images = num_images
+        os.makedirs(output_dir, exist_ok=True)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        pl_module.eval()
+        device = pl_module.device
+
+        inputs, targets = [], []
+        for i, (x, y) in enumerate(self.val_samples):
+            if i >= self.num_images:
+                break
+            if isinstance(x, np.ndarray):
+                x = torch.from_numpy(x)
+            if isinstance(y, np.ndarray):
+                y = torch.from_numpy(y)
+            inputs.append(x.unsqueeze(0))
+            targets.append(y.unsqueeze(0))
+        inputs = torch.cat(inputs).to(device)
+        targets = torch.cat(targets).to(device)
+
+        with torch.no_grad():
+            preds = pl_module(inputs)
+
+        preds = torch.sigmoid(preds).cpu().numpy()
+        inputs = inputs.cpu().numpy()
+        targets = targets.cpu().numpy()
+
+        # save side-by-side plots
+        for i in range(self.num_images):
+            fig, axs = plt.subplots(1, 3, figsize=(9, 3))
+            axs[0].imshow(inputs[i, 0], cmap="gray")
+            axs[0].set_title("Input")
+            axs[1].imshow(targets[i, 0], cmap="gray")
+            axs[1].set_title("Target")
+            axs[2].imshow(preds[i, 0] > 0.5, cmap="gray")
+            axs[2].set_title("Prediction")
+            for ax in axs:
+                ax.axis("off")
+            plt.tight_layout()
+            plt.savefig(f"{self.output_dir}/epoch{trainer.current_epoch:03d}_sample{i}.png")
+            plt.close(fig)
+
+
 def train_contrail_network(augmentation, epochs, loss, base):
 
     print(
@@ -105,20 +159,29 @@ def train_contrail_network(augmentation, epochs, loss, base):
         train_dataset,
         batch_size=16,
         shuffle=True,
+        num_workers=8,
     )
 
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=16,
         shuffle=True,
+        num_workers=8,
     )
 
     model = ContrailModel(arch="UNet", in_channels=1, out_classes=1, loss=loss)
 
+    # pick a few samples for visualization
+    val_samples = [val_dataset[i] for i in range(4)]
+
+    prediction_callback = PredictionCallback(val_samples, output_dir="data/predictions")
+
     trainer = lightning.Trainer(
         max_epochs=epochs,
-        log_every_n_steps=20,
+        log_every_n_steps=10,
+        callbacks=[prediction_callback],
     )
+    
     max_val = epochs
     tag = "epoch"
 
@@ -127,6 +190,8 @@ def train_contrail_network(augmentation, epochs, loss, base):
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
+    
+    os.makedirs("data/models", exist_ok=True)
 
     if base is None:
         f_out = f"data/models/{loss}-{max_val}{tag}.torch"

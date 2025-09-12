@@ -1,13 +1,16 @@
 from matplotlib import pyplot as plt
 
-def compare_two_losses(loss_a, loss_a_label, loss_b, loss_b_label):
+def compare_two_losses(loss_a, loss_a_val, loss_a_label, loss_b, loss_b_val, loss_b_label):
 
 
     plt.plot(loss_a, label=loss_a_label)
+    plt.plot(loss_a_val, label=loss_a_label + ' (val)')
     plt.plot(loss_b, label=loss_b_label)
+    plt.plot(loss_b_val, label=loss_b_label + ' (val)')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
+    plt.yscale('log')
     plt.grid(True)
 
     plt.title('Loss Comparison')

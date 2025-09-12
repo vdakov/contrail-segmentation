@@ -3,10 +3,15 @@ import os
 import warnings
 import click
 import lightning
+from matplotlib import gridspec
 import torch
 from torch.utils.data import DataLoader
 from contrail import ContrailModel
 import data
+import matplotlib.pyplot as plt
+import numpy as np
+from lightning.pytorch.callbacks import Callback
+from IPython.display import display, clear_output
 
 warnings.filterwarnings("ignore")
 @click.command()
@@ -90,20 +95,32 @@ def main(dataset, minute, epoch, loss, base):
 # if __name__ == "__main__":
 #     main()
 
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
-from lightning.pytorch.callbacks import Callback
 
-class PredictionCallback(Callback):
-    def __init__(self, val_samples, output_dir="predictions", num_images=4):
+
+class LossAndPredictionCallback(Callback):
+    def __init__(self, val_samples, output_dir="predictions", num_images=4, plot_every=5):
         super().__init__()
         self.val_samples = val_samples
         self.output_dir = output_dir
         self.num_images = num_images
+        self.plot_every = plot_every
+        self.train_losses = []
+        self.val_losses = []
         os.makedirs(output_dir, exist_ok=True)
 
+    def on_train_epoch_end(self, trainer, pl_module):
+        # record training loss
+        train_loss = trainer.logged_metrics.get("train_loss")  # assumes you log 'train_loss'
+        if train_loss is not None:
+            self.train_losses.append(train_loss.item())
+
     def on_validation_epoch_end(self, trainer, pl_module):
+        # record validation loss
+        val_loss = trainer.logged_metrics.get("val_loss")  # assumes you log 'val_loss'
+        if val_loss is not None:
+            self.val_losses.append(val_loss.item())
+
+        # visualize predictions
         pl_module.eval()
         device = pl_module.device
 
@@ -126,24 +143,44 @@ class PredictionCallback(Callback):
         preds = torch.sigmoid(preds).cpu().numpy()
         inputs = inputs.cpu().numpy()
         targets = targets.cpu().numpy()
+        clear_output(wait=True)  # clears previous output
 
-        # save side-by-side plots
-        for i in range(self.num_images):
-            fig, axs = plt.subplots(1, 3, figsize=(9, 3))
-            axs[0].imshow(inputs[i, 0], cmap="gray")
-            axs[0].set_title("Input")
-            axs[1].imshow(targets[i, 0], cmap="gray")
-            axs[1].set_title("Target")
-            axs[2].imshow(preds[i, 0] > 0.5, cmap="gray")
-            axs[2].set_title("Prediction")
-            for ax in axs:
+        # save side-by-side plots for each image
+
+
+        # plot losses every `plot_every` epochs
+        if (trainer.current_epoch + 1) % self.plot_every == 0:
+            fig = plt.figure(figsize=(12, 6))
+            gs = gridspec.GridSpec(2, self.num_images, height_ratios=[1, 0.5])
+
+            # Top row: Loss curves
+            ax0 = fig.add_subplot(gs[0, :])
+            ax0.plot(range(1, len(self.train_losses)+1), self.train_losses, label="Train Loss")
+            ax0.plot(range(1, len(self.val_losses)+1), self.val_losses, label="Val Loss")
+            ax0.set_xlabel("Epoch")
+            ax0.set_ylabel("Loss")
+            ax0.set_title(f"Epoch {trainer.current_epoch+1} - Loss Curves")
+            ax0.legend()
+            ax0.grid(True)
+
+            # Bottom row: Predictions
+            for i in range(self.num_images):
+                ax = fig.add_subplot(gs[1, i])
+                combined = np.concatenate(
+                    [inputs[i, 0], targets[i, 0], (preds[i, 0] > 0.5).astype(float)], axis=1
+                )
+                ax.imshow(combined, cmap="gray")
                 ax.axis("off")
+                ax.set_title(f"Sample {i}")
+
             plt.tight_layout()
-            plt.savefig(f"{self.output_dir}/epoch{trainer.current_epoch:03d}_sample{i}.png")
-            plt.close(fig)
+            plt.savefig(f"{self.output_dir}/epoch{trainer.current_epoch+1:03d}_summary.png")
+            display(plt.gcf())
+            plt.close()
 
 
-def train_contrail_network(augmentation, epochs, loss, base):
+
+def train_contrail_network(augmentation, epochs, loss, base, dataset="own", log_every_n_epochs=5):
 
     print(
         f"training:  {epochs} epoch, {loss} loss, {base} base"
@@ -151,8 +188,11 @@ def train_contrail_network(augmentation, epochs, loss, base):
 
     torch.cuda.empty_cache()
     
+    if dataset == "own":
     # train_dataset, val_dataset = data.study_dataset(augmentation=augmentation)
-    train_dataset, val_dataset = data.own_dataset_2(augmentation)
+        train_dataset, val_dataset = data.own_dataset_2(augmentation)
+    elif dataset == "google":
+        train_dataset, val_dataset = data.google_dataset(augmentation=augmentation)
 
 
     train_dataloader = DataLoader(
@@ -174,11 +214,11 @@ def train_contrail_network(augmentation, epochs, loss, base):
     # pick a few samples for visualization
     val_samples = [val_dataset[i] for i in range(4)]
 
-    prediction_callback = PredictionCallback(val_samples, output_dir="data/predictions")
+    prediction_callback = LossAndPredictionCallback(val_samples, output_dir="data/predictions")
 
     trainer = lightning.Trainer(
         max_epochs=epochs,
-        log_every_n_steps=10,
+        log_every_n_steps=log_every_n_epochs,
         callbacks=[prediction_callback],
     )
     

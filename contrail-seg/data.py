@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 
 DEFAULT_IMG_SIZE = 320
 
-GOOGLE_DIR = "data/google-goes-contrail"
+GOOGLE_DIR = "contrail-seg/data/google-goes-contrail"
 
 
 def visualize(**images):
@@ -302,7 +302,7 @@ def own_dataset_2(augmentation, for_training=True):
 
     return train_dataset, val_dataset
 
-def google_dataset(for_training=True, contrail_only=False, threshold=100):
+def google_dataset(augmentation, for_training=True, contrail_only=False, threshold=100):
     mask_stats = pd.read_csv(f"{GOOGLE_DIR}/mask_stats.csv")
 
     if for_training:
@@ -310,7 +310,7 @@ def google_dataset(for_training=True, contrail_only=False, threshold=100):
         selected_records = pd.concat(
             [
                 mask_stats.query("mask_pixels>200"),
-                mask_stats.query("mask_pixels<200").sample(2000, random_state=42),
+                mask_stats.query("mask_pixels<200").sample(2000, replace=True, random_state=42),
             ]
         )
     else:
@@ -338,18 +338,14 @@ def google_dataset(for_training=True, contrail_only=False, threshold=100):
     train_dataset = GoogleDataset(
         x_train,
         y_train,
-        augmentation=(
-            get_train_augmentation() if for_training else get_test_augmentation()
-        ),
+        augmentation= augmentation,
         preprocessing=get_preprocessing(),
     )
 
     val_dataset = GoogleDataset(
         x_val,
         y_val,
-        augmentation=(
-            get_val_augmentation() if for_training else get_test_augmentation()
-        ),
+        augmentation=augmentation,
         preprocessing=get_preprocessing(),
     )
 

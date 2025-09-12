@@ -22,7 +22,7 @@ def load_image(record_id):
     band14 = np.load(f"{BASE_DIR}/{record_id}/band_14.npy")
     band15 = np.load(f"{BASE_DIR}/{record_id}/band_15.npy")
     pixel_mask = np.load(f"{BASE_DIR}/{record_id}/human_pixel_masks.npy")
-    individual_mask = np.load(f"{BASE_DIR}/{record_id}/human_individual_masks.npy")
+    # individual_mask = np.load(f"{BASE_DIR}/{record_id}/human_individual_masks.npy")
 
     def normalize(data, bounds):
         return (data - bounds[0]) / (bounds[1] - bounds[0])
@@ -38,7 +38,7 @@ def load_image(record_id):
         ash=ash[..., 4],
         btd=btd[..., 4],
         pixel_mask=pixel_mask,
-        individual_mask=individual_mask,
+        # individual_mask=individual_mask,
     )
 
 

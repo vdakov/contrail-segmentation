@@ -135,6 +135,11 @@ class ContrailModel(lightning.LightningModule):
         }
 
         self.log_dict(metrics, prog_bar=True)
+        if stage == "train":
+            self.log("train_loss", model_loss, prog_bar=True, on_epoch=True)
+        else:
+            self.log("val_loss", model_loss, prog_bar=True, on_epoch=True)
+
 
     def training_step(self, batch, batch_idx):
         return self.shared_step(batch, "train")

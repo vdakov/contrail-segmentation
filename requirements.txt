@@ -12,3 +12,5 @@ pandas
 ipykernel
 click
 lightning
+jupytext
+npconvert

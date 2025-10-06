@@ -12,3 +12,4 @@ pandas
 ipykernel
 click
 lightning
+jupytext

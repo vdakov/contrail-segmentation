@@ -13,3 +13,4 @@ ipykernel
 click
 lightning
 jupytext
+npconvert

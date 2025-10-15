@@ -292,7 +292,7 @@ def own_dataset_2(augmentation, for_training=True):
         augmentation=augmentation,
         preprocessing=get_preprocessing(),
     )
-
+    
     val_dataset = OwnDataset(
         x_val,
         y_val,

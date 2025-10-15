@@ -13,4 +13,4 @@ ipykernel
 click
 lightning
 jupytext
-npconvert
+nbconvert

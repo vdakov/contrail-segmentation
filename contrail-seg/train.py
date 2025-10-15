@@ -91,14 +91,8 @@ def main(dataset, minute, epoch, loss, base):
 
     torch.save(model.state_dict(), f_out)
 
-
-# if __name__ == "__main__":
-#     main()
-
-
-
 class LossAndPredictionCallback(Callback):
-    def __init__(self, val_samples, output_dir="predictions", num_images=4, plot_every=5):
+    def __init__(self, val_samples, output_dir="predictions", num_images=4, plot_every=5, experiment_name="experiment"):
         super().__init__()
         self.val_samples = val_samples
         self.output_dir = output_dir
@@ -106,6 +100,7 @@ class LossAndPredictionCallback(Callback):
         self.plot_every = plot_every
         self.train_losses = []
         self.val_losses = []
+        self.experiment_name = experiment_name
         os.makedirs(output_dir, exist_ok=True)
 
     def on_train_epoch_end(self, trainer, pl_module):
@@ -174,13 +169,13 @@ class LossAndPredictionCallback(Callback):
                 ax.set_title(f"Sample {i}")
 
             plt.tight_layout()
-            plt.savefig(f"{self.output_dir}/epoch{trainer.current_epoch+1:03d}_summary.png")
+            plt.savefig(f"{self.output_dir}/{self.experiment_name}-epoch{trainer.current_epoch+1:03d}_summary.png")
             display(plt.gcf())
             plt.close()
 
 
 
-def train_contrail_network(augmentation, epochs, loss, base, dataset="own", log_every_n_epochs=5):
+def train_contrail_network(augmentation, epochs, loss, base, dataset="own", log_every_n_epochs=5, experiment_name="experiment"):
 
     print(
         f"training:  {epochs} epoch, {loss} loss, {base} base"
@@ -188,8 +183,9 @@ def train_contrail_network(augmentation, epochs, loss, base, dataset="own", log_
 
     torch.cuda.empty_cache()
     
+    train_dataset, val_dataset = None, None
+    
     if dataset == "own":
-    # train_dataset, val_dataset = data.study_dataset(augmentation=augmentation)
         train_dataset, val_dataset = data.own_dataset_2(augmentation)
     elif dataset == "google":
         train_dataset, val_dataset = data.google_dataset(augmentation=augmentation)
@@ -233,9 +229,11 @@ def train_contrail_network(augmentation, epochs, loss, base, dataset="own", log_
     
     os.makedirs("data/models", exist_ok=True)
 
+
     if base is None:
-        f_out = f"data/models/{loss}-{max_val}{tag}.torch"
+        f_out = f"data/models/{experiment_name}-{dataset}-{loss}-{max_val}{tag}.torch"
     else:
-        f_out = f"data/models/{loss}:{base}-{max_val}{tag}.torch"
+        f_out = f"data/models/{experiment_name}-{dataset}-{loss}:{base}-{max_val}{tag}.torch"
+
 
     torch.save(model.state_dict(), f_out)

@@ -1,0 +1,16 @@
+matplotlib 
+torch 
+torchvision
+numpy 
+lightning 
+segmentation_models_pytorch
+scikit-learn
+albumentations 
+opencv-python
+seaborn
+pandas
+ipykernel
+click
+lightning
+jupytext
+nbconvert

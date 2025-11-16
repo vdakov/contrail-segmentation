@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+
 DEFAULT_IMG_SIZE = 320
 
 GOOGLE_DIR = "contrail-seg/data/google-goes-contrail"
@@ -296,7 +297,10 @@ def own_dataset_2(augmentation, for_training=True):
     val_dataset = OwnDataset(
         x_val,
         y_val,
-        augmentation=augmentation,
+        augmentation=albu.Compose([
+            albu.Resize(128, 128),
+            albu.Normalize(mean=0.5, std=0.5, max_pixel_value=255.0),
+        ]),
         preprocessing=get_preprocessing(),
     )
 

@@ -9,6 +9,7 @@ def load_mnist_data(train, data_augmentations, subset_size=100, num_classes=10, 
         root='./data', train=train, download=True, transform=data_augmentations
     )
 
+    
     # Create balanced subset
     samples_per_class = subset_size // num_classes
     balanced_indices = get_balanced_indices_by_targets(full_trainset.targets, samples_per_class)
@@ -17,7 +18,9 @@ def load_mnist_data(train, data_augmentations, subset_size=100, num_classes=10, 
     # Split into train/val
     val_size = int(len(balanced_trainset) * val_split)
     train_size = len(balanced_trainset) - val_size
-    trainset, valset = random_split(balanced_trainset, [train_size, val_size])
+    generator = torch.Generator().manual_seed(42)
+    trainset, valset = random_split(balanced_trainset, [train_size, val_size], generator=generator)
+
 
     # Test set
     testset = torchvision.datasets.MNIST(
@@ -25,7 +28,7 @@ def load_mnist_data(train, data_augmentations, subset_size=100, num_classes=10, 
     )
 
     # Dataloaders
-    trainloader = DataLoader(trainset, batch_size=32, shuffle=True)
+    trainloader = DataLoader(trainset, batch_size=32, shuffle=False)
     valloader = DataLoader(valset, batch_size=32, shuffle=False)
     testloader = DataLoader(testset, batch_size=32, shuffle=False)
     

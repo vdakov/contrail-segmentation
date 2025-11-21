@@ -25,9 +25,9 @@ def load_mnist_data(train, data_augmentations, subset_size=100, num_classes=10, 
     )
 
     # Dataloaders
-    trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
-    valloader = DataLoader(valset, batch_size=64, shuffle=False)
-    testloader = DataLoader(testset, batch_size=64, shuffle=False)
+    trainloader = DataLoader(trainset, batch_size=32, shuffle=True)
+    valloader = DataLoader(valset, batch_size=32, shuffle=False)
+    testloader = DataLoader(testset, batch_size=32, shuffle=False)
     
     return trainset, valloader, testset, trainloader, valloader, testloader
 

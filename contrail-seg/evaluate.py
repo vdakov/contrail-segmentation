@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from contrail import ContrailModel
 
 def evaluate_contrail_model(model_path, dataset="own", augmentation=None, num_images=4, device=None):
     """
@@ -64,7 +65,7 @@ def evaluate_contrail_model(model_path, dataset="own", augmentation=None, num_im
     avg_recall = np.mean(recalls)
 
     print(f"Evaluation on {dataset} dataset:")
-    print(f"Dice (F1): {avg_dice:.4f}")
+    print(f"F1: {avg_dice:.4f}")
     print(f"Precision: {avg_precision:.4f}")
     print(f"Recall: {avg_recall:.4f}")
 
@@ -105,3 +106,80 @@ def evaluate_contrail_model(model_path, dataset="own", augmentation=None, num_im
     plt.show()
 
     return avg_dice, avg_precision, avg_recall
+
+
+def plot_pr_curve(model_path, dataset="own", augmentation=None, device=None, num_thresholds=50):
+    """
+    Compute and plot the Precision–Recall curve for a saved ContrailModel.
+    """
+
+    from torch.utils.data import DataLoader
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+    # ---- Load dataset ----
+    if dataset == "own":
+        from data import own_dataset_2
+        val_dataset = own_dataset_2(augmentation)[1]
+    elif dataset == "google":
+        from data import google_dataset
+        val_dataset = google_dataset(augmentation=augmentation)[1]
+    else:
+        raise ValueError(f"Unknown dataset {dataset}")
+
+    val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4)
+
+    # ---- Load model ----
+    model = ContrailModel(arch="UNet", in_channels=1, out_classes=1, loss="dice")
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.to(device)
+    model.eval()
+
+    # Accumulate predictions + targets
+    all_preds = []
+    all_targets = []
+
+    with torch.no_grad():
+        for x, y in val_dataloader:
+            x = x.to(device)
+            pred = torch.sigmoid(model(x))           # shape [B,1,H,W]
+            all_preds.append(pred.cpu())
+            all_targets.append(y.cpu())
+
+    preds = torch.cat(all_preds, dim=0).numpy()
+    targets = torch.cat(all_targets, dim=0).numpy()
+
+    preds = preds.reshape(-1)
+    targets = targets.reshape(-1)
+
+    # ---- Compute PR curve ----
+    thresholds = np.linspace(0.0, 1.0, num_thresholds)
+    precisions = []
+    recalls = []
+
+    for t in thresholds:
+        bin_pred = (preds > t).astype(np.float32)
+
+        tp = np.sum(bin_pred * targets)
+        fp = np.sum(bin_pred * (1 - targets))
+        fn = np.sum((1 - bin_pred) * targets)
+
+        precision = tp / (tp + fp + 1e-8)
+        recall = tp / (tp + fn + 1e-8)
+
+        precisions.append(precision)
+        recalls.append(recall)
+
+    # ---- Plot ----
+    plt.figure(figsize=(7, 6))
+    plt.plot(recalls, precisions, marker='o', linewidth=2)
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"Precision–Recall Curve ({dataset})")
+    plt.grid(True)
+    plt.show()
+
+    return thresholds, precisions, recalls

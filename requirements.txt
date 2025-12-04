@@ -3,7 +3,6 @@ torch
 torchvision 
 lightning 
 segmentation_models_pytorch
-scikit-learn
 albumentations 
 opencv-python
 seaborn

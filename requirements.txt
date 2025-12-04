@@ -1,7 +1,6 @@
 matplotlib 
 torch 
-torchvision
-numpy 
+torchvision 
 lightning 
 segmentation_models_pytorch
 scikit-learn
